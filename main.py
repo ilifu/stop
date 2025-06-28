@@ -185,10 +185,41 @@ def process_node_list(scontrol_data):
 
     return node_list_df.sort("Node Name")
 
+def process_partition_list(sinfo_data):
+    if not sinfo_data or "sinfo" not in sinfo_data:
+        print("Failed to retrieve sinfo data for partition list.")
+        return None
+
+    partitions_df = pl.DataFrame(sinfo_data["sinfo"])
+
+    # Define aggregations
+    aggs = [
+        pl.col("nodes").struct.field("total").sum().alias("Total Nodes"),
+        pl.col("nodes").struct.field("idle").sum().alias("Idle Nodes"),
+        pl.col("nodes").struct.field("allocated").sum().alias("Allocated Nodes"),
+        pl.col("cpus").struct.field("total").sum().alias("Total CPUs"),
+        pl.col("cpus").struct.field("idle").sum().alias("Free CPUs"),
+        pl.col("cpus").struct.field("allocated").sum().alias("Allocated CPUs"),
+    ]
+
+    if "availability" in partitions_df.columns:
+        aggs.append(pl.col("availability").unique().list().join(", ").alias("Availability"))
+    
+    if "state" in partitions_df.columns:
+        aggs.append(pl.col("state").unique().list().join(", ").alias("State"))
+
+    # Group by partition name and aggregate
+    partition_list_df = partitions_df.group_by(
+        pl.col("partition").struct.field("name").alias("Partition Name")
+    ).agg(aggs)
+
+    return partition_list_df.sort("Partition Name")
+
 def format_seconds_to_human_readable(seconds):
     if seconds is None:
         return "N/A"
     seconds = int(seconds)
+
     days = seconds // (24 * 3600)
     seconds %= (24 * 3600)
     hours = seconds // 3600
@@ -297,6 +328,7 @@ This application displays various metrics from a Slurm cluster.
 - `a`: Show About page
 - `h`: Show this Help page
 - `n`: Show Node list page
+- `p`: Show Partition list page
 - `b`: Go back to the main screen
 
 ## Data Tables:
@@ -389,6 +421,39 @@ class NodeScreen(Screen):
     async def action_refresh_nodes(self) -> None:
         await self.update_nodes()
 
+class PartitionScreen(Screen):
+    BINDINGS = [
+        ("b", "app.pop_screen", "Back"),
+        ("r", "refresh_partitions", "Refresh"),
+    ]
+
+    def __init__(self, delay: int):
+        super().__init__()
+        self.delay = delay
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        yield DataTable(id="partition_list_table")
+        yield Footer()
+
+    async def on_mount(self) -> None:
+        self.set_interval(self.delay, self.update_partitions)
+        await self.update_partitions()
+
+    async def update_partitions(self) -> None:
+        sinfo_data = await get_slurm_data("sinfo --json")
+        partition_list = process_partition_list(sinfo_data)
+        
+        table = self.query_one("#partition_list_table", DataTable)
+        if partition_list is not None:
+            if not table.columns:
+                table.add_columns(*partition_list.columns)
+            table.clear()
+            table.add_rows(partition_list.rows())
+
+    async def action_refresh_partitions(self) -> None:
+        await self.update_partitions()
+
 class CustomFooter(Footer):
     """A custom footer that includes a last updated timestamp."""
 
@@ -414,6 +479,7 @@ class SlurmMonitorApp(App):
         ("h", "push_screen('help')", "Help"),
         ("c", "push_screen('config')", "Config"),
         ("n", "push_screen('nodes')", "Nodes"),
+        ("p", "push_screen('partitions')", "Partitions"),
     ]
 
     SCREENS = {
@@ -441,6 +507,7 @@ class SlurmMonitorApp(App):
 
     async def on_mount(self) -> None:
         self.install_screen(NodeScreen(delay=self.delay), "nodes")
+        self.install_screen(PartitionScreen(delay=self.delay), "partitions")
         self.set_interval(self.delay, self.update_data)
 
         # Initialize table columns once
