@@ -466,10 +466,11 @@ class PartitionScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield DataTable(id="partition_list_table")
+        yield DataTable(id="partition_list_table", cursor_type="row")
         yield Footer()
 
     async def on_mount(self) -> None:
+        self.query_one(DataTable).focus()
         self.set_interval(self.delay, self.update_partitions)
         await self.update_partitions()
 
@@ -486,6 +487,37 @@ class PartitionScreen(Screen):
 
     async def action_refresh_partitions(self) -> None:
         await self.update_partitions()
+
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        table = self.query_one(DataTable)
+        partition_name = table.get_row_at(event.cursor_row)[0]
+        self.app.push_screen(PartitionDetailScreen(partition_name=partition_name))
+
+class PartitionDetailScreen(Screen):
+    BINDINGS = [
+        ("b", "app.pop_screen", "Back"),
+    ]
+
+    def __init__(self, partition_name: str):
+        super().__init__()
+        self.partition_name = partition_name
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        with ScrollableContainer():
+            yield Static(id="partition_details")
+        yield Footer()
+
+    async def on_mount(self) -> None:
+        await self.update_partition_details()
+
+    async def update_partition_details(self) -> None:
+        partition_data = await get_slurm_data(f"scontrol show partition {self.partition_name} --json")
+        static = self.query_one("#partition_details", Static)
+        if partition_data:
+            static.update(json.dumps(partition_data, indent=4))
+        else:
+            static.update(f"Failed to fetch details for partition {self.partition_name}.")
 
 class CustomFooter(Footer):
     """A custom footer that includes a last updated timestamp."""
