@@ -1,0 +1,54 @@
+.\" Man page for stop
+.TH stop 1 "June 2024" "stop 0.1.0" "User Commands"
+
+.SH NAME
+stop \- A real-time monitoring dashboard for a Slurm cluster.
+
+.SH SYNOPSIS
+.B stop
+[\fI--delay\fR \fIDELAY\fR]
+[\fI--help\fR]
+
+.SH DESCRIPTION
+.B stop
+is a terminal-based application that provides a real-time monitoring dashboard for a Slurm cluster. It fetches data from Slurm using
+.BR sinfo ,
+.BR squeue ,
+and
+.B scontrol
+commands and presents it in an easy-to-read tabular format.
+
+.SH OPTIONS
+.TP
+.B \-\-delay
+.I DELAY
+The delay between updates in seconds. The default is 30 seconds.
+.TP
+.B \-h, \-\-help
+Show the help message and exit.
+
+.SH KEY BINDINGS
+.TP
+.B d
+Toggle dark mode.
+.TP
+.B q
+Quit the application.
+.TP
+.B a
+Show the About page.
+.TP
+.B h
+Show the Help page.
+.TP
+.B c
+Show the Slurm config page.
+.TP
+.B b
+Go back to the main screen from the About, Help, or Config pages.
+
+.SH SEE ALSO
+.BR sinfo (1),
+.BR squeue (1),
+.BR scontrol (1)
+
