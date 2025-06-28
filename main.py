@@ -329,6 +329,7 @@ This application displays various metrics from a Slurm cluster.
 - `h`: Show this Help page
 - `n`: Show Node list page
 - `p`: Show Partition list page
+- `Enter`: Show details for selected item
 - `b`: Go back to the main screen
 
 ## Data Tables:
@@ -400,10 +401,11 @@ class NodeScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield DataTable(id="node_list_table")
+        yield DataTable(id="node_list_table", cursor_type="row")
         yield Footer()
 
     async def on_mount(self) -> None:
+        self.query_one(DataTable).focus()
         self.set_interval(self.delay, self.update_nodes)
         await self.update_nodes()
 
@@ -420,6 +422,37 @@ class NodeScreen(Screen):
 
     async def action_refresh_nodes(self) -> None:
         await self.update_nodes()
+
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        table = self.query_one(DataTable)
+        node_name = table.get_row_at(event.cursor_row)[0]
+        self.app.push_screen(NodeDetailScreen(node_name=node_name))
+
+class NodeDetailScreen(Screen):
+    BINDINGS = [
+        ("b", "app.pop_screen", "Back"),
+    ]
+
+    def __init__(self, node_name: str):
+        super().__init__()
+        self.node_name = node_name
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        with ScrollableContainer():
+            yield Static(id="node_details")
+        yield Footer()
+
+    async def on_mount(self) -> None:
+        await self.update_node_details()
+
+    async def update_node_details(self) -> None:
+        node_data = await get_slurm_data(f"scontrol show node {self.node_name} --json")
+        static = self.query_one("#node_details", Static)
+        if node_data:
+            static.update(json.dumps(node_data, indent=4))
+        else:
+            static.update(f"Failed to fetch details for node {self.node_name}.")
 
 class PartitionScreen(Screen):
     BINDINGS = [

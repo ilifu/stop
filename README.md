@@ -73,6 +73,7 @@ The application can be controlled with the following keys:
 | `c` | Show the "Slurm Config" screen               |
 | `n` | Show the "Node List" screen                  |
 | `p` | Show the "Partition List" screen             |
+| `Enter` | Show details for selected item in a list     |
 | `b` | Go back to the main screen (from other screens) |
 
 
