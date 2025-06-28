@@ -4,7 +4,7 @@ import asyncio
 import subprocess
 import polars as pl
 from textual.app import App, ComposeResult
-from textual.widgets import Header, Footer, DataTable
+from textual.widgets import Header, Footer, DataTable, Input
 from textual.containers import Horizontal, Vertical, ScrollableContainer
 
 async def get_slurm_data(command):
@@ -330,6 +330,8 @@ This application displays various metrics from a Slurm cluster.
 - `n`: Show Node list page
 - `p`: Show Partition list page
 - `Enter`: Show details for selected item
+- `/`: Search in lists
+- `ESC`: Exit search mode
 - `b`: Go back to the main screen
 
 ## Data Tables:
@@ -393,14 +395,18 @@ class NodeScreen(Screen):
     BINDINGS = [
         ("b", "app.pop_screen", "Back"),
         ("r", "refresh_nodes", "Refresh"),
+        ("/", "show_search", "Search"),
+        ("escape", "hide_search", "Hide Search"),
     ]
 
     def __init__(self, delay: int):
         super().__init__()
         self.delay = delay
+        self.node_list = None
 
     def compose(self) -> ComposeResult:
         yield Header()
+        yield Input(placeholder="Search nodes...", id="search_input")
         yield DataTable(id="node_list_table", cursor_type="row")
         yield Footer()
 
@@ -408,20 +414,45 @@ class NodeScreen(Screen):
         self.query_one(DataTable).focus()
         self.set_interval(self.delay, self.update_nodes)
         await self.update_nodes()
+        self.query_one("#search_input").display = False
 
     async def update_nodes(self) -> None:
         scontrol_data = await get_slurm_data("scontrol show nodes --json")
-        node_list = process_node_list(scontrol_data)
-        
+        self.node_list = process_node_list(scontrol_data)
+        self.filter_nodes(self.query_one("#search_input").value)
+
+    def filter_nodes(self, search_term: str = "") -> None:
         table = self.query_one("#node_list_table", DataTable)
-        if node_list is not None:
+        if self.node_list is not None:
             if not table.columns:
-                table.add_columns(*node_list.columns)
+                table.add_columns(*self.node_list.columns)
+            
+            filtered_list = self.node_list
+            if search_term:
+                filtered_list = self.node_list.filter(
+                    pl.col("Node Name").str.contains(search_term, literal=True)
+                )
+            
             table.clear()
-            table.add_rows(node_list.rows())
+            table.add_rows(filtered_list.rows())
 
     async def action_refresh_nodes(self) -> None:
         await self.update_nodes()
+
+    def action_show_search(self) -> None:
+        search_input = self.query_one("#search_input")
+        search_input.display = True
+        search_input.focus()
+
+    def action_hide_search(self) -> None:
+        search_input = self.query_one("#search_input")
+        if search_input.display:
+            search_input.value = ""
+            search_input.display = False
+            self.query_one(DataTable).focus()
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        self.filter_nodes(event.value)
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         table = self.query_one(DataTable)
@@ -458,14 +489,18 @@ class PartitionScreen(Screen):
     BINDINGS = [
         ("b", "app.pop_screen", "Back"),
         ("r", "refresh_partitions", "Refresh"),
+        ("/", "show_search", "Search"),
+        ("escape", "hide_search", "Hide Search"),
     ]
 
     def __init__(self, delay: int):
         super().__init__()
         self.delay = delay
+        self.partition_list = None
 
     def compose(self) -> ComposeResult:
         yield Header()
+        yield Input(placeholder="Search partitions...", id="search_input")
         yield DataTable(id="partition_list_table", cursor_type="row")
         yield Footer()
 
@@ -473,20 +508,45 @@ class PartitionScreen(Screen):
         self.query_one(DataTable).focus()
         self.set_interval(self.delay, self.update_partitions)
         await self.update_partitions()
+        self.query_one("#search_input").display = False
 
     async def update_partitions(self) -> None:
         sinfo_data = await get_slurm_data("sinfo --json")
-        partition_list = process_partition_list(sinfo_data)
-        
+        self.partition_list = process_partition_list(sinfo_data)
+        self.filter_partitions(self.query_one("#search_input").value)
+
+    def filter_partitions(self, search_term: str = "") -> None:
         table = self.query_one("#partition_list_table", DataTable)
-        if partition_list is not None:
+        if self.partition_list is not None:
             if not table.columns:
-                table.add_columns(*partition_list.columns)
+                table.add_columns(*self.partition_list.columns)
+            
+            filtered_list = self.partition_list
+            if search_term:
+                filtered_list = self.partition_list.filter(
+                    pl.col("Partition Name").str.contains(search_term, literal=True)
+                )
+            
             table.clear()
-            table.add_rows(partition_list.rows())
+            table.add_rows(filtered_list.rows())
 
     async def action_refresh_partitions(self) -> None:
         await self.update_partitions()
+
+    def action_show_search(self) -> None:
+        search_input = self.query_one("#search_input")
+        search_input.display = True
+        search_input.focus()
+
+    def action_hide_search(self) -> None:
+        search_input = self.query_one("#search_input")
+        if search_input.display:
+            search_input.value = ""
+            search_input.display = False
+            self.query_one(DataTable).focus()
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        self.filter_partitions(event.value)
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         table = self.query_one(DataTable)

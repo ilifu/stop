@@ -74,6 +74,8 @@ The application can be controlled with the following keys:
 | `n` | Show the "Node List" screen                  |
 | `p` | Show the "Partition List" screen             |
 | `Enter` | Show details for selected item in a list     |
+| `/`     | Search in lists                            |
+| `ESC`   | Exit search mode                           |
 | `b` | Go back to the main screen (from other screens) |
 
 
