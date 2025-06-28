@@ -71,6 +71,7 @@ The application can be controlled with the following keys:
 | `a` | Show the "About" screen                      |
 | `h` | Show the "Help" screen                       |
 | `c` | Show the "Slurm Config" screen               |
+| `n` | Show the "Node List" screen                  |
 | `b` | Go back to the main screen (from other screens) |
 
 

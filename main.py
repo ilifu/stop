@@ -163,6 +163,28 @@ def process_node_summary(scontrol_data):
     }
     return pl.DataFrame(summary_data)
 
+def process_node_list(scontrol_data):
+    if not scontrol_data or "nodes" not in scontrol_data:
+        print("Failed to retrieve scontrol data for node list.")
+        return None
+
+    nodes_df = pl.DataFrame(scontrol_data["nodes"])
+
+    # Select and rename columns
+    node_list_df = nodes_df.select([
+        pl.col("name").alias("Node Name"),
+        pl.col("state").list.join(", ").alias("State"),
+        pl.col("cpus").alias("Total Cores"),
+        pl.col("alloc_cpus").alias("Allocated Cores"),
+        pl.col("real_memory").alias("Total Memory (MB)"),
+        pl.col("alloc_memory").alias("Allocated Memory (MB)"),
+        (pl.col("real_memory") - pl.col("alloc_memory")).alias("Free Memory (MB)"),
+        pl.col("partitions").list.join(", ").alias("Partitions"),
+        pl.col("cpu_load").alias("CPU Load"),
+    ])
+
+    return node_list_df.sort("Node Name")
+
 def format_seconds_to_human_readable(seconds):
     if seconds is None:
         return "N/A"
@@ -274,6 +296,7 @@ This application displays various metrics from a Slurm cluster.
 - `q`: Quit the application
 - `a`: Show About page
 - `h`: Show this Help page
+- `n`: Show Node list page
 - `b`: Go back to the main screen
 
 ## Data Tables:
@@ -333,6 +356,38 @@ class ConfigScreen(Screen):
         else:
             static.update("Failed to fetch Slurm configuration.")
 
+class NodeScreen(Screen):
+    BINDINGS = [
+        ("b", "app.pop_screen", "Back"),
+        ("r", "refresh_nodes", "Refresh"),
+    ]
+
+    def __init__(self, delay: int):
+        super().__init__()
+        self.delay = delay
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        yield DataTable(id="node_list_table")
+        yield Footer()
+
+    async def on_mount(self) -> None:
+        self.set_interval(self.delay, self.update_nodes)
+        await self.update_nodes()
+
+    async def update_nodes(self) -> None:
+        scontrol_data = await get_slurm_data("scontrol show nodes --json")
+        node_list = process_node_list(scontrol_data)
+        
+        table = self.query_one("#node_list_table", DataTable)
+        if node_list is not None:
+            if not table.columns:
+                table.add_columns(*node_list.columns)
+            table.clear()
+            table.add_rows(node_list.rows())
+
+    async def action_refresh_nodes(self) -> None:
+        await self.update_nodes()
 
 class CustomFooter(Footer):
     """A custom footer that includes a last updated timestamp."""
@@ -358,6 +413,7 @@ class SlurmMonitorApp(App):
         ("a", "push_screen('about')", "About"),
         ("h", "push_screen('help')", "Help"),
         ("c", "push_screen('config')", "Config"),
+        ("n", "push_screen('nodes')", "Nodes"),
     ]
 
     SCREENS = {
@@ -384,6 +440,7 @@ class SlurmMonitorApp(App):
         yield CustomFooter()
 
     async def on_mount(self) -> None:
+        self.install_screen(NodeScreen(delay=self.delay), "nodes")
         self.set_interval(self.delay, self.update_data)
 
         # Initialize table columns once
@@ -478,6 +535,7 @@ Key Bindings:
   a: Show About page
   h: Show Help page
   c: Show Slurm config page
+  n: Show node list page
   b: Go back to the main screen
 """,
         formatter_class=argparse.RawTextHelpFormatter

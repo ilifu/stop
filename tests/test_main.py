@@ -1,8 +1,14 @@
 import pytest
 import asyncio
 import json
+import sys
+import os
 from unittest.mock import AsyncMock, patch
 import polars as pl
+
+# Add project root to the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from main import (
     get_slurm_data,
     process_partition_summary,
