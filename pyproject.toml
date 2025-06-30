@@ -11,12 +11,14 @@ requires-python = ">=3.13"
 dependencies = [
     "polars>=1.31.0",
     "textual[syntax]>=3.5.0",
+    "textual-serve",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest",
     "pytest-asyncio",
+    "textual-dev",
 ]
 
 [project.scripts]
