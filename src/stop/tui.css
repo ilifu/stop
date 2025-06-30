@@ -1,6 +1,5 @@
 Screen > Container {
-    layout: grid;
-    grid-size: 1 3;
+    layout: vertical;
     grid-gutter: 1;
 }
 
@@ -8,24 +7,25 @@ Screen > Container {
     height: 1fr;
 }
 
-Horizontal {
+#node_job_summary {
+    height: auto;
+}
+
+#job_summaries {
     height: 1fr;
-    layout: grid;
-    grid-size: 2;
-    grid-gutter: 1;
+}
+
+HorizontalGroup {
+    height: 100%;
+    layout: horizontal;
 }
 
 #node_summary_table {
     width: 1fr;
-    height: 1fr;
 }
 
-Vertical {
+VerticalGroup {
     width: 1fr;
-    height: 1fr;
-    layout: grid;
-    grid-size: 1 2;
-    grid-gutter: 1;
 }
 
 #job_summary_table {

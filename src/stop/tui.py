@@ -3,7 +3,7 @@ import json
 from importlib import resources
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, DataTable, Input, Static
-from textual.containers import Container, ScrollableContainer, Horizontal, Vertical
+from textual.containers import Container, ScrollableContainer, Horizontal, HorizontalGroup, Vertical, VerticalGroup
 from textual.screen import Screen
 from textual.binding import Binding
 import polars as pl
@@ -328,12 +328,12 @@ class SlurmMonitorApp(App):
         yield Header(show_clock=True)
         with Container():
             yield DataTable(id="partition_summary_table")
-            with Horizontal():
+            with HorizontalGroup(id="node_job_summary"):
                 yield DataTable(id="node_summary_table")
-                with Vertical():
+                with VerticalGroup():
                     yield DataTable(id="job_summary_table")
                     yield DataTable(id="pending_job_wait_time_stats_table")
-            with Horizontal():
+            with HorizontalGroup(id="job_summaries"):
                 yield DataTable(id="user_job_summary_table")
                 yield DataTable(id="account_job_summary_table")
         yield CustomFooter()
