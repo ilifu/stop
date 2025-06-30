@@ -3,7 +3,7 @@ import json
 from importlib import resources
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, DataTable, Input, Static
-from textual.containers import Container, ScrollableContainer
+from textual.containers import Container, ScrollableContainer, Horizontal, Vertical
 from textual.screen import Screen
 from textual.binding import Binding
 import polars as pl
@@ -328,11 +328,14 @@ class SlurmMonitorApp(App):
         yield Header(show_clock=True)
         with Container():
             yield DataTable(id="partition_summary_table")
-            yield DataTable(id="node_summary_table")
-            yield DataTable(id="job_summary_table")
-            yield DataTable(id="pending_job_wait_time_stats_table")
-            yield DataTable(id="user_job_summary_table")
-            yield DataTable(id="account_job_summary_table")
+            with Horizontal():
+                yield DataTable(id="node_summary_table")
+                with Vertical():
+                    yield DataTable(id="job_summary_table")
+                    yield DataTable(id="pending_job_wait_time_stats_table")
+            with Horizontal():
+                yield DataTable(id="user_job_summary_table")
+                yield DataTable(id="account_job_summary_table")
         yield CustomFooter()
 
     async def on_mount(self) -> None:

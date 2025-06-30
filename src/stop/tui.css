@@ -1,21 +1,38 @@
-Screen {
+Screen > Container {
     layout: grid;
-    grid-size: 2 2;
+    grid-size: 1 3;
     grid-gutter: 1;
 }
 
 #partition_summary_table {
-    column-span: 2;
     height: 1fr;
+}
+
+Horizontal {
+    height: 1fr;
+    layout: grid;
+    grid-size: 2;
+    grid-gutter: 1;
 }
 
 #node_summary_table {
-    column-span: 2;
+    width: 1fr;
     height: 1fr;
 }
 
+Vertical {
+    width: 1fr;
+    height: 1fr;
+    layout: grid;
+    grid-size: 1 2;
+    grid-gutter: 1;
+}
+
 #job_summary_table {
-    column-span: 2;
+    height: 1fr;
+}
+
+#pending_job_wait_time_stats_table {
     height: 1fr;
 }
 
