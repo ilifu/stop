@@ -185,7 +185,7 @@ def process_node_summary(scontrol_data):
     ).shape[0]
 
     summary_data = {
-        "Metric": [
+        "Node Summary": [
             "Total Nodes", "Total CPUs", "Total Memory (MB)",
             "Allocated CPUs", "Allocated Memory (MB)",
             "Broken Nodes", "Nodes in Reservation", "Mixed Nodes"
@@ -340,13 +340,13 @@ def process_pending_job_wait_time_stats(squeue_data, current_time):
     mean_current_wait = current_wait_df.select(pl.mean("current_wait_seconds")).item()
 
     return pl.DataFrame({
-        "Metric": ["Max", "Median", "Mean"],
-        "Estimated Wait Time": [
+        "Wait Times": ["Max", "Median", "Mean"],
+        "Estimated": [
             format_seconds_to_human_readable(max_estimated_wait),
             format_seconds_to_human_readable(median_estimated_wait),
             format_seconds_to_human_readable(mean_estimated_wait)
         ],
-        "Current Wait Time": [
+        "Current": [
             format_seconds_to_human_readable(max_current_wait),
             format_seconds_to_human_readable(median_current_wait),
             format_seconds_to_human_readable(mean_current_wait)

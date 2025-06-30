@@ -358,7 +358,7 @@ class SlurmMonitorApp(App):
 
         job_table = self.query_one("#job_summary_table", DataTable)
         job_summary_initial_df = pl.DataFrame({
-            "Metric": ["Running Jobs", "Pending Jobs"],
+            "Job Summary": ["Running Jobs", "Pending Jobs"],
             "Value": [0, 0]
         })
         job_table.add_columns(*job_summary_initial_df.columns)
@@ -407,7 +407,7 @@ class SlurmMonitorApp(App):
             total_pending_jobs = account_summary.select(pl.sum("PENDING")).item() if "PENDING" in account_summary.columns else 0
             
             job_summary_df = pl.DataFrame({
-                "Metric": ["Running Jobs", "Pending Jobs"],
+                "Job Summary": ["Running Jobs", "Pending Jobs"],
                 "Value": [total_running_jobs, total_pending_jobs]
             })
 
