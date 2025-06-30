@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import argparse
-from tui import SlurmMonitorApp
+from .tui import SlurmMonitorApp
 
 def main():
     parser = argparse.ArgumentParser(

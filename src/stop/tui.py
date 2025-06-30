@@ -1,13 +1,14 @@
 import datetime
 import json
+from importlib import resources
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, DataTable, Input, Static
-from textual.containers import Horizontal, Vertical, ScrollableContainer
+from textual.containers import Container, ScrollableContainer
 from textual.screen import Screen
 from textual.binding import Binding
 import polars as pl
 
-from slurm import (
+from .slurm import (
     get_all_slurm_data,
     get_slurm_data,
     process_partition_summary,
@@ -25,7 +26,7 @@ class AboutScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Vertical(
+        yield ScrollableContainer(
             Static("""# About This Application
 
 This application provides a real-time monitoring dashboard for a Slurm cluster. It fetches data from Slurm using `sinfo`, `squeue`, and `scontrol` commands and presents it in an easy-to-read tabular format.
@@ -48,7 +49,7 @@ class HelpScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Vertical(
+        yield ScrollableContainer(
             Static("""# Help
 
 This application displays various metrics from a Slurm cluster.
@@ -313,22 +314,23 @@ class SlurmMonitorApp(App):
         "help": HelpScreen,
         "config": ConfigScreen,
     }
-
+    
     def __init__(self, delay: int):
         super().__init__()
         self.delay = delay
 
+    def on_load(self) -> None:
+        with resources.path(__package__, "tui.css") as p:
+            self.stylesheet_path = p
+
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
-        with Vertical():
+        with Container():
             yield DataTable(id="partition_summary_table")
             yield DataTable(id="node_summary_table")
             yield DataTable(id="job_summary_table")
-        with Horizontal():
-            with Vertical():
-                yield DataTable(id="user_job_summary_table")
-            with Vertical():
-                yield DataTable(id="account_job_summary_table")
+            yield DataTable(id="user_job_summary_table")
+            yield DataTable(id="account_job_summary_table")
         yield CustomFooter()
 
     async def on_mount(self) -> None:
@@ -417,3 +419,4 @@ class SlurmMonitorApp(App):
             account_job_table.add_rows(account_summary.rows())
 
         self.query_one(CustomFooter).update_timestamp()
+

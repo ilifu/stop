@@ -20,11 +20,12 @@ dev = [
 ]
 
 [project.scripts]
-stop = "stop:main"
+stop = "stop.main:main"
 
 [tool.setuptools]
+packages = ["stop"]
 package-dir = {"" = "src"}
-py-modules = ["stop", "slurm", "tui"]
+package-data = {"stop" = ["*.css"]}
 
 [tool.setuptools.data-files]
 "share/man/man1" = ["man/stop.1"]
