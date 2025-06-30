@@ -4,8 +4,6 @@
 
 The application is built with Python using the [Textual](https://github.com/Textualize/textual) framework.
 
-Note this was a weekend project for me to try out vibe programming. I decided to use gemini cli since there is a free tier and it worked very well. I ended up having to pay a bit because I went over the free tier limit, but it was worth it for the experience.
-
 ## Features
 
 - **Real-time Data:** Fetches and displays data from `sinfo`, `squeue`, and `scontrol` at a configurable interval.
@@ -105,3 +103,7 @@ The project uses `pytest`. To run the test suite:
 ```bash
 uv run pytest
 ```
+
+## Acknowledgements
+
+This project was developed with assistance from Google's Gemini.
