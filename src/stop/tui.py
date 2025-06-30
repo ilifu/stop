@@ -64,9 +64,15 @@ This application displays various metrics from a Slurm cluster.
 - `n`: Show Node list page
 - `p`: Show Partition list page
 - `Enter`: Show details for selected item
-- `/`: Search in lists
-- `ESC`: Exit search mode
+- `f`: Filter in lists (Nodes, Partitions, and Jobs)
+- `ESC`: Exit filter mode
 - `b`: Go back to the main screen
+
+## Job List Filter:
+- To filter for a specific user, type `user: <username>`
+- To filter for a specific account, type `account: <accountname>`
+- To filter for a specific state, type `state: <jobstate>`
+- Any other text will search across all fields.
 
 ## Data Tables:
 - **Partition Summary:** Shows resource allocation per Slurm partition.
@@ -105,8 +111,8 @@ class NodeScreen(Screen):
     BINDINGS = [
         ("b", "app.pop_screen", "Back"),
         ("r", "refresh_nodes", "Refresh"),
-        ("/", "show_search", "Search"),
-        ("escape", "hide_search", "Hide Search"),
+        ("f", "show_filter", "Filter"),
+        ("escape", "hide_filter", "Hide Filter"),
     ]
 
     def __init__(self, delay: int):
@@ -116,7 +122,7 @@ class NodeScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Input(placeholder="Search nodes...", id="search_input")
+        yield Input(placeholder="Filter nodes...", id="search_input")
         yield DataTable(id="node_list_table", cursor_type="row")
         yield Footer()
 
@@ -140,7 +146,8 @@ class NodeScreen(Screen):
             filtered_list = self.node_list
             if search_term:
                 filtered_list = self.node_list.filter(
-                    pl.col("Node Name").str.contains(search_term, literal=True)
+                    pl.col("Node Name").str.to_lowercase().str.contains(search_term.lower()) |
+                    pl.col("State").str.to_lowercase().str.contains(search_term.lower())
                 )
             
             table.clear()
@@ -149,15 +156,14 @@ class NodeScreen(Screen):
     async def action_refresh_nodes(self) -> None:
         await self.update_nodes()
 
-    def action_show_search(self) -> None:
+    def action_show_filter(self) -> None:
         search_input = self.query_one("#search_input")
         search_input.display = True
         search_input.focus()
 
-    def action_hide_search(self) -> None:
+    def action_hide_filter(self) -> None:
         search_input = self.query_one("#search_input")
         if search_input.display:
-            search_input.value = ""
             search_input.display = False
             self.query_one(DataTable).focus()
 
@@ -199,8 +205,8 @@ class PartitionScreen(Screen):
     BINDINGS = [
         ("b", "app.pop_screen", "Back"),
         ("r", "refresh_partitions", "Refresh"),
-        ("/", "show_search", "Search"),
-        ("escape", "hide_search", "Hide Search"),
+        ("f", "show_filter", "Filter"),
+        ("escape", "hide_filter", "Hide Filter"),
     ]
 
     def __init__(self, delay: int):
@@ -210,7 +216,7 @@ class PartitionScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Input(placeholder="Search partitions...", id="search_input")
+        yield Input(placeholder="Filter partitions...", id="search_input")
         yield DataTable(id="partition_list_table", cursor_type="row")
         yield Footer()
 
@@ -234,7 +240,7 @@ class PartitionScreen(Screen):
             filtered_list = self.partition_list
             if search_term:
                 filtered_list = self.partition_list.filter(
-                    pl.col("Partition Name").str.contains(search_term, literal=True)
+                    pl.col("Partition Name").str.to_lowercase().str.contains(search_term.lower())
                 )
             
             table.clear()
@@ -243,15 +249,14 @@ class PartitionScreen(Screen):
     async def action_refresh_partitions(self) -> None:
         await self.update_partitions()
 
-    def action_show_search(self) -> None:
+    def action_show_filter(self) -> None:
         search_input = self.query_one("#search_input")
         search_input.display = True
         search_input.focus()
 
-    def action_hide_search(self) -> None:
+    def action_hide_filter(self) -> None:
         search_input = self.query_one("#search_input")
         if search_input.display:
-            search_input.value = ""
             search_input.display = False
             self.query_one(DataTable).focus()
 
@@ -294,8 +299,8 @@ class JobScreen(Screen):
     BINDINGS = [
         ("b", "app.pop_screen", "Back"),
         ("r", "refresh_jobs", "Refresh"),
-        ("/", "show_search", "Search"),
-        ("escape", "hide_search", "Hide Search"),
+        ("f", "show_filter", "Filter"),
+        ("escape", "hide_filter", "Hide Filter"),
     ]
 
     def __init__(self, delay: int):
@@ -305,7 +310,7 @@ class JobScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Input(placeholder="Search jobs...", id="search_input")
+        yield Input(placeholder="Filter jobs...", id="search_input")
         yield DataTable(id="job_list_table", cursor_type="row")
         yield Footer()
 
@@ -325,30 +330,42 @@ class JobScreen(Screen):
         if self.job_list is not None:
             if not table.columns:
                 table.add_columns(*self.job_list.columns)
-            
+
             filtered_list = self.job_list
             if search_term:
-                filtered_list = self.job_list.filter(
-                    pl.col("User").str.contains(search_term, literal=True) |
-                    pl.col("Account").str.contains(search_term, literal=True) |
-                    pl.col("Job ID").str.contains(search_term, literal=True)
-                )
-            
+                if ":" in search_term:
+                    field, value = search_term.split(":", 1)
+                    field = field.strip().lower()
+                    value = value.strip()
+
+                    if field == "user":
+                        filtered_list = self.job_list.filter(pl.col("User").str.to_lowercase().str.contains(value.lower()))
+                    elif field == "account":
+                        filtered_list = self.job_list.filter(pl.col("Account").str.to_lowercase().str.contains(value.lower()))
+                    elif field == "state":
+                        filtered_list = self.job_list.filter(pl.col("State").str.to_lowercase().str.contains(value.lower()))
+                else:
+                    filtered_list = self.job_list.filter(
+                        pl.col("User").str.to_lowercase().str.contains(search_term.lower()) |
+                        pl.col("Account").str.to_lowercase().str.contains(search_term.lower()) |
+                        pl.col("Job ID").cast(pl.String).str.to_lowercase().str.contains(search_term.lower()) |
+                        pl.col("State").str.to_lowercase().str.contains(search_term.lower())
+                    )
+
             table.clear()
             table.add_rows(filtered_list.rows())
 
     async def action_refresh_jobs(self) -> None:
         await self.update_jobs()
 
-    def action_show_search(self) -> None:
+    def action_show_filter(self) -> None:
         search_input = self.query_one("#search_input")
         search_input.display = True
         search_input.focus()
 
-    def action_hide_search(self) -> None:
+    def action_hide_filter(self) -> None:
         search_input = self.query_one("#search_input")
         if search_input.display:
-            search_input.value = ""
             search_input.display = False
             self.query_one(DataTable).focus()
 
