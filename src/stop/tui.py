@@ -15,6 +15,7 @@ from .slurm import (
     process_node_summary,
     process_job_summaries,
     process_node_list,
+    process_job_list,
     process_partition_list,
     fetch_config,
     process_pending_job_wait_time_stats,
@@ -288,8 +289,76 @@ class PartitionDetailScreen(Screen):
         else:
             static.update(f"Failed to fetch details for partition {self.partition_name}.")
 
+
+class JobScreen(Screen):
+    BINDINGS = [
+        ("b", "app.pop_screen", "Back"),
+        ("r", "refresh_jobs", "Refresh"),
+        ("/", "show_search", "Search"),
+        ("escape", "hide_search", "Hide Search"),
+    ]
+
+    def __init__(self, delay: int):
+        super().__init__()
+        self.delay = delay
+        self.job_list = None
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        yield Input(placeholder="Search jobs...", id="search_input")
+        yield DataTable(id="job_list_table", cursor_type="row")
+        yield Footer()
+
+    async def on_mount(self) -> None:
+        self.query_one(DataTable).focus()
+        self.set_interval(self.delay, self.update_jobs)
+        await self.update_jobs()
+        self.query_one("#search_input").display = False
+
+    async def update_jobs(self) -> None:
+        squeue_data = await get_slurm_data("squeue --json")
+        self.job_list = process_job_list(squeue_data)
+        self.filter_jobs(self.query_one("#search_input").value)
+
+    def filter_jobs(self, search_term: str = "") -> None:
+        table = self.query_one("#job_list_table", DataTable)
+        if self.job_list is not None:
+            if not table.columns:
+                table.add_columns(*self.job_list.columns)
+            
+            filtered_list = self.job_list
+            if search_term:
+                filtered_list = self.job_list.filter(
+                    pl.col("User").str.contains(search_term, literal=True) |
+                    pl.col("Account").str.contains(search_term, literal=True) |
+                    pl.col("Job ID").str.contains(search_term, literal=True)
+                )
+            
+            table.clear()
+            table.add_rows(filtered_list.rows())
+
+    async def action_refresh_jobs(self) -> None:
+        await self.update_jobs()
+
+    def action_show_search(self) -> None:
+        search_input = self.query_one("#search_input")
+        search_input.display = True
+        search_input.focus()
+
+    def action_hide_search(self) -> None:
+        search_input = self.query_one("#search_input")
+        if search_input.display:
+            search_input.value = ""
+            search_input.display = False
+            self.query_one(DataTable).focus()
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        self.filter_jobs(event.value)
+
+
 class CustomFooter(Footer):
     """A custom footer that includes a last updated timestamp."""
+
 
     def compose(self) -> ComposeResult:
         yield Static("", id="last_updated")
@@ -308,6 +377,7 @@ class SlurmMonitorApp(App):
         ("c", "push_screen('config')", "Config"),
         ("n", "push_screen('nodes')", "Nodes"),
         ("p", "push_screen('partitions')", "Partitions"),
+        ("j", "push_screen('jobs')", "Jobs"),
     ]
 
     SCREENS = {
@@ -341,6 +411,7 @@ class SlurmMonitorApp(App):
     async def on_mount(self) -> None:
         self.install_screen(NodeScreen(delay=self.delay), "nodes")
         self.install_screen(PartitionScreen(delay=self.delay), "partitions")
+        self.install_screen(JobScreen(delay=self.delay), "jobs")
         self.set_interval(self.delay, self.update_data)
 
         # Initialize table columns once

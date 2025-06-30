@@ -1,6 +1,7 @@
 import asyncio
 import json
 import time
+from datetime import datetime
 import polars as pl
 
 async def get_slurm_data(command):
@@ -263,6 +264,33 @@ def format_seconds_to_human_readable(seconds):
     seconds %= 60
     return f"{days}d {hours}h {minutes}m {seconds}s"
 
+
+def get_tres_value(tres_str: str, key: str) -> str | None:
+    """Extracts a value from a TRES string for a given key."""
+    if not tres_str:
+        return None
+    for part in tres_str.split(','):
+        if part.startswith(f"{key}="):
+            return part.split('=', 1)[1]
+    return None
+
+
+def convert_mem_to_mb(mem_str: str | None) -> float | None:
+    """Converts a memory string (e.g., '10G', '500M') to megabytes."""
+    if not mem_str:
+        return None
+    mem_str = mem_str.upper()
+    try:
+        if mem_str.endswith('G'):
+            return float(mem_str[:-1]) * 1024
+        if mem_str.endswith('M'):
+            return float(mem_str[:-1])
+        if mem_str.endswith('K'):
+            return float(mem_str[:-1]) / 1024
+        return float(mem_str)
+    except (ValueError, TypeError):
+        return None
+
 def process_pending_job_waiting_times_summary(squeue_data):
     if not squeue_data or "jobs" not in squeue_data or not squeue_data["jobs"]:
         print("Failed to retrieve squeue data for pending job waiting times summary or no jobs found.")
@@ -303,6 +331,46 @@ def process_pending_job_waiting_times_summary(squeue_data):
     )
 
     return summary_df
+
+
+def process_job_list(squeue_data):
+    if not squeue_data or "jobs" not in squeue_data:
+        return None
+
+    jobs_df = pl.DataFrame(squeue_data["jobs"])
+
+    # Extract TRES values
+    jobs_df = jobs_df.with_columns(
+        pl.col("tres_req_str").map_elements(lambda x: get_tres_value(x, "cpu"), return_dtype=pl.String).alias("cpus_req"),
+        pl.col("tres_req_str").map_elements(lambda x: get_tres_value(x, "mem"), return_dtype=pl.String).alias("mem_req"),
+        pl.col("tres_req_str").map_elements(lambda x: get_tres_value(x, "node"), return_dtype=pl.String).alias("nodes_req")
+    )
+
+    # Convert memory to MB
+    jobs_df = jobs_df.with_columns(
+        pl.col("mem_req").map_elements(convert_mem_to_mb, return_dtype=pl.Float64).alias("mem_mb")
+    )
+
+    # Select and rename columns
+    job_list_df = jobs_df.select([
+        pl.col("job_id").alias("Job ID"),
+        pl.col("user_name").alias("User"),
+        pl.col("account").alias("Account"),
+        pl.col("job_state").list.join(", ").alias("State"),
+        pl.col("nodes_req").alias("Nodes"),
+        pl.col("cpus_req").alias("CPUs"),
+        pl.col("mem_mb").alias("Memory (MB)"),
+        pl.col("start_time").struct.field("number").alias("Start Time"),
+        pl.col("end_time").struct.field("number").alias("End Time"),
+    ])
+
+    # Convert timestamps to human-readable format
+    job_list_df = job_list_df.with_columns([
+        pl.col("Start Time").map_elements(lambda ts: datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S') if ts else "N/A", return_dtype=pl.String),
+        pl.col("End Time").map_elements(lambda ts: datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S') if ts else "N/A", return_dtype=pl.String),
+    ])
+
+    return job_list_df.sort("Job ID")
 
 
 def process_pending_job_wait_time_stats(squeue_data, current_time):
