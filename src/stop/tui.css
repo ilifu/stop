@@ -1,3 +1,18 @@
+#loading-container {
+    height: 1fr;
+    align: center middle;
+}
+
+#welcome-message {
+    width: 100%;
+    text-align: center;
+}
+
+
+#main-container.hidden {
+    display: none;
+}
+
 Screen > Container {
     layout: vertical;
     grid-gutter: 1;

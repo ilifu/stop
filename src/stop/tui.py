@@ -2,7 +2,7 @@ import datetime
 import json
 from importlib import resources
 from textual.app import App, ComposeResult
-from textual.widgets import Header, Footer, DataTable, Input, Static
+from textual.widgets import Header, Footer, DataTable, Input, Static, LoadingIndicator
 from textual.containers import Container, ScrollableContainer, Horizontal, HorizontalGroup, Vertical, VerticalGroup
 from textual.screen import Screen
 from textual.binding import Binding
@@ -413,7 +413,11 @@ class SlurmMonitorApp(App):
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
-        with Container():
+        with Container(id="loading-container"):
+            with Vertical():
+                yield Static("Welcome to Slurm Monitor!", id="welcome-message")
+                yield LoadingIndicator()
+        with Container(id="main-container", classes="hidden"):
             yield DataTable(id="partition_summary_table")
             with HorizontalGroup(id="node_job_summary"):
                 yield DataTable(id="node_summary_table")
@@ -430,9 +434,20 @@ class SlurmMonitorApp(App):
         self.install_screen(PartitionScreen(delay=self.delay), "partitions")
         self.install_screen(JobScreen(delay=self.delay), "jobs")
         self.set_interval(self.delay, self.update_data)
+        self.run_worker(self.initial_load, thread=True)
 
-        # Initialize table columns once
-        all_data = await get_all_slurm_data()
+    def initial_load(self) -> None:
+        """Load the initial data."""
+        import asyncio
+        all_data = asyncio.run(get_all_slurm_data())
+        if self.is_running:
+            self.call_from_thread(self.show_tables, all_data)
+
+    def show_tables(self, all_data: dict) -> None:
+        """Show the tables with the initial data."""
+        self.query_one("#loading-container").remove()
+        self.query_one("#main-container").remove_class("hidden")
+        
         sinfo_data = all_data["sinfo"]
         squeue_data = all_data["squeue"]
         scontrol_data = all_data["scontrol"]
@@ -469,10 +484,10 @@ class SlurmMonitorApp(App):
         if user_summary is not None:
             user_job_table.add_columns(*["user_name", "Total Jobs", "RUNNING", "PENDING", "COMPLETED", "CANCELLED", "FAILED", "TIMEOUT", "NODE_FAIL", "PREEMPTED", "SUSPENDED"])
 
-        await self.update_data()
+        self.update_data_tables(all_data)
 
-    async def update_data(self) -> None:
-        all_data = await get_all_slurm_data()
+    def update_data_tables(self, all_data: dict) -> None:
+        """Update the tables with new data."""
         sinfo_data = all_data["sinfo"]
         squeue_data = all_data["squeue"]
         scontrol_data = all_data["scontrol"]
@@ -524,4 +539,8 @@ class SlurmMonitorApp(App):
             account_job_table.add_rows(account_summary.rows())
 
         self.query_one(CustomFooter).update_timestamp()
+
+    async def update_data(self) -> None:
+        all_data = await get_all_slurm_data()
+        self.update_data_tables(all_data)
 

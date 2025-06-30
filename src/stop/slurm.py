@@ -6,8 +6,9 @@ import polars as pl
 
 async def get_slurm_data(command):
     try:
-        process = await asyncio.create_subprocess_shell(
-            command,
+        command_parts = command.split()
+        process = await asyncio.create_subprocess_exec(
+            *command_parts,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
@@ -29,8 +30,9 @@ async def get_slurm_data(command):
 
 async def get_slurm_text_data(command):
     try:
-        process = await asyncio.create_subprocess_shell(
-            command,
+        command_parts = command.split()
+        process = await asyncio.create_subprocess_exec(
+            *command_parts,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
