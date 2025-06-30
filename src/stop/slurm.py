@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 import polars as pl
 
 async def get_slurm_data(command):
@@ -56,7 +57,8 @@ async def get_all_slurm_data():
     return {
         "sinfo": results[0],
         "squeue": results[1],
-        "scontrol": results[2]
+        "scontrol": results[2],
+        "current_time": time.time()
     }
 
 async def fetch_config():
@@ -301,3 +303,52 @@ def process_pending_job_waiting_times_summary(squeue_data):
     )
 
     return summary_df
+
+
+def process_pending_job_wait_time_stats(squeue_data, current_time):
+    if not squeue_data or "jobs" not in squeue_data or not squeue_data["jobs"]:
+        return None
+
+    squeue_df = pl.DataFrame(squeue_data["jobs"])
+
+    pending_jobs_df = squeue_df.filter(
+        (pl.col("job_state").list.contains("PENDING")) &
+        (pl.col("eligible_time").struct.field("number") != 0)
+    )
+
+    if pending_jobs_df.is_empty():
+        return None
+
+    # Calculate estimated wait time
+    estimated_wait_df = pending_jobs_df.filter(pl.col("start_time").struct.field("number") != 0)
+    if not estimated_wait_df.is_empty():
+        estimated_wait_df = estimated_wait_df.with_columns(
+            (pl.col("start_time").struct.field("number") - pl.col("eligible_time").struct.field("number")).alias("estimated_wait_seconds")
+        )
+        max_estimated_wait = estimated_wait_df.select(pl.max("estimated_wait_seconds")).item()
+        median_estimated_wait = estimated_wait_df.select(pl.median("estimated_wait_seconds")).item()
+        mean_estimated_wait = estimated_wait_df.select(pl.mean("estimated_wait_seconds")).item()
+    else:
+        max_estimated_wait, median_estimated_wait, mean_estimated_wait = 0, 0, 0
+
+    # Calculate current wait time
+    current_wait_df = pending_jobs_df.with_columns(
+        (current_time - pl.col("eligible_time").struct.field("number")).alias("current_wait_seconds")
+    )
+    max_current_wait = current_wait_df.select(pl.max("current_wait_seconds")).item()
+    median_current_wait = current_wait_df.select(pl.median("current_wait_seconds")).item()
+    mean_current_wait = current_wait_df.select(pl.mean("current_wait_seconds")).item()
+
+    return pl.DataFrame({
+        "Metric": ["Max", "Median", "Mean"],
+        "Estimated Wait Time": [
+            format_seconds_to_human_readable(max_estimated_wait),
+            format_seconds_to_human_readable(median_estimated_wait),
+            format_seconds_to_human_readable(mean_estimated_wait)
+        ],
+        "Current Wait Time": [
+            format_seconds_to_human_readable(max_current_wait),
+            format_seconds_to_human_readable(median_current_wait),
+            format_seconds_to_human_readable(mean_current_wait)
+        ]
+    })

@@ -17,6 +17,7 @@ from .slurm import (
     process_node_list,
     process_partition_list,
     fetch_config,
+    process_pending_job_wait_time_stats,
 )
 
 class AboutScreen(Screen):
@@ -329,6 +330,7 @@ class SlurmMonitorApp(App):
             yield DataTable(id="partition_summary_table")
             yield DataTable(id="node_summary_table")
             yield DataTable(id="job_summary_table")
+            yield DataTable(id="pending_job_wait_time_stats_table")
             yield DataTable(id="user_job_summary_table")
             yield DataTable(id="account_job_summary_table")
         yield CustomFooter()
@@ -360,6 +362,11 @@ class SlurmMonitorApp(App):
             "Value": [0, 0]
         })
         job_table.add_columns(*job_summary_initial_df.columns)
+
+        pending_job_wait_time_stats_table = self.query_one("#pending_job_wait_time_stats_table", DataTable)
+        pending_job_wait_time_stats_summary = process_pending_job_wait_time_stats(squeue_data, all_data["current_time"])
+        if pending_job_wait_time_stats_summary is not None:
+            pending_job_wait_time_stats_table.add_columns(*pending_job_wait_time_stats_summary.columns)
 
         user_job_table = self.query_one("#user_job_summary_table", DataTable)
         account_job_table = self.query_one("#account_job_summary_table", DataTable)
@@ -407,6 +414,13 @@ class SlurmMonitorApp(App):
             job_table = self.query_one("#job_summary_table", DataTable)
             job_table.clear()
             job_table.add_rows(job_summary_df.rows())
+
+            # Update Pending Job Wait Time Stats
+            pending_job_wait_time_stats_summary = process_pending_job_wait_time_stats(squeue_data, all_data["current_time"])
+            if pending_job_wait_time_stats_summary is not None:
+                pending_job_wait_time_stats_table = self.query_one("#pending_job_wait_time_stats_table", DataTable)
+                pending_job_wait_time_stats_table.clear()
+                pending_job_wait_time_stats_table.add_rows(pending_job_wait_time_stats_summary.rows())
 
             # Update User Job Summary
             user_job_table = self.query_one("#user_job_summary_table", DataTable)
