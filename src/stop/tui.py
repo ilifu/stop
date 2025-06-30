@@ -395,6 +395,7 @@ class SlurmMonitorApp(App):
         ("n", "push_screen('nodes')", "Nodes"),
         ("p", "push_screen('partitions')", "Partitions"),
         ("j", "push_screen('jobs')", "Jobs"),
+        ("m", "go_home", "Main Screen"),
     ]
 
     SCREENS = {
@@ -406,6 +407,11 @@ class SlurmMonitorApp(App):
     def __init__(self, delay: int):
         super().__init__()
         self.delay = delay
+
+    def action_go_home(self) -> None:
+        """Pop all screens to return to the main screen."""
+        while len(self.screen_stack) > 1:
+            self.pop_screen()
 
     def on_load(self) -> None:
         with resources.path(__package__, "tui.css") as p:
