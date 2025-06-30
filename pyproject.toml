@@ -22,8 +22,9 @@ dev = [
 [project.scripts]
 stop = "stop:main"
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.setuptools]
+package-dir = {"" = "src"}
+py-modules = ["stop", "slurm", "tui"]
 
 [tool.setuptools.data-files]
 "share/man/man1" = ["man/stop.1"]
