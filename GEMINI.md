@@ -15,7 +15,7 @@ Dependencies are managed with `uv` and are listed in `pyproject.toml`.
 
 - **Run the application:**
   ```bash
-  python main.py
+  python stop.py
   ```
 - **Run tests:**
   ```bash
