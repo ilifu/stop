@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stop"
-version = "0.1.1"
-description = "Add your description here"
+version = "0.1.2"
+description = "stop is Slurm Top. A terminal UI for monitoring various aspects of a Slurm cluster."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
